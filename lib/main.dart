@@ -3,6 +3,7 @@ import 'package:blackfly/widgets/logo.dart';
 import 'package:blackfly/pages/map_range_page.dart';
 import 'package:blackfly/pages/question_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 void main() {
   runApp(MyApp());
@@ -11,11 +12,19 @@ void main() {
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
     return MaterialApp(
       title: 'BLACKFLY',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
+          outlinedButtonTheme: OutlinedButtonThemeData(
+              style: ButtonStyle(
+                  overlayColor: MaterialStateProperty.all(Colors.black54),
+                  foregroundColor: MaterialStateProperty.all(Colors.black54),
+                  side: MaterialStateProperty.all(
+                      BorderSide(color: Colors.black54))))),
       home: HomePage(),
     );
   }
@@ -41,7 +50,7 @@ class _HomePageState extends State<HomePage> {
           children: <Widget>[
             Logo(),
             SizedBox(
-              height: 400,
+              height: 600,
               width: 400,
               child: PageView(
                 children: [QuestionPage(), MapRangePage(), AltitudePage()],

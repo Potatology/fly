@@ -1,6 +1,9 @@
+import 'dart:async';
+import 'package:blackfly/map_style.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:location/location.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class MapRangePage extends StatefulWidget {
   @override
@@ -8,18 +11,23 @@ class MapRangePage extends StatefulWidget {
 }
 
 class _MapRangePageState extends State<MapRangePage> {
-  Location location = new Location();
-  LocationData _location;
+  final Location location = Location();
   PermissionStatus _permissionGranted;
+  LocationData _locationData;
   String _error;
+  bool _serviceEnabled;
+  GoogleMapController mapController;
+  LatLng _center;
+  Set<Circle> circles;
+  double _currentSliderValue = 40;
+  int _minutes = 30;
+  double _maxValue = 40;
+  double _originalDiameter = 380;
+  double _circleDiameter = 380;
 
-  Future<PermissionStatus> _checkPermissions() async {
-    final PermissionStatus permissionGrantedResult =
-        await location.hasPermission();
-    setState(() {
-      _permissionGranted = permissionGrantedResult;
-    });
-    return _permissionGranted;
+  void _onMapCreated(GoogleMapController controller) {
+    mapController = controller;
+    controller.setMapStyle(mapStyleJson);
   }
 
   Future<void> _requestPermission() async {
@@ -32,63 +40,136 @@ class _MapRangePageState extends State<MapRangePage> {
     }
   }
 
-  Future<void> _getLocation() async {
-    setState(() {
-      _error = null;
-    });
+  Future<void> _requestService() async {
+    if (_serviceEnabled == null || !_serviceEnabled) {
+      final bool serviceRequestedResult = await location.requestService();
+      _serviceEnabled = serviceRequestedResult;
+      if (!serviceRequestedResult) {
+        return;
+      }
+    }
+  }
+
+  Future<LocationData> _getLocation() async {
+    _error = null;
     try {
       final LocationData _locationResult = await location.getLocation();
-      setState(() {
-        _location = _locationResult;
-      });
+      _locationData = _locationResult;
     } on PlatformException catch (err) {
-      setState(() {
-        _error = err.code;
-      });
+      _error = err.code;
     }
+    _center = LatLng(_locationData.latitude, _locationData.longitude);
+    circles = Set.from([
+      Circle(
+        strokeColor: Colors.yellow,
+        circleId: CircleId('1'),
+        center: _center,
+        radius: 50000,
+        visible: true,
+      )
+    ]);
+    return _locationData;
   }
 
   @override
   Widget build(BuildContext context) {
-    final locateLaunchsiteButton = OutlinedButton(
-        onPressed: () {
-          //_requestPermission();
-        },
-        child: Text('LOCATE LAUNCH SITE'));
-
-    final locationText = FutureBuilder(
-        future: _getLocation(),
-        builder: (context, snapshot) {
-          return _location == null ? Text('no location') : Text('$_location');
-        });
-
-    return Container(
-      height: 300,
-      width: 300,
-      child: FutureBuilder(
-        future: _checkPermissions(),
-        builder: (BuildContext context, AsyncSnapshot snapshot) {
-          Widget child;
-          if (snapshot.hasData) {
-            child = _permissionGranted == PermissionStatus.granted
-                ? locationText
-                : locateLaunchsiteButton;
-          } else if (snapshot.hasError) {
-            child = Text('$snapshot.error');
-          } else {
-            child = SizedBox(
-              height: 60,
-              width: 60,
-              child: CircularProgressIndicator(
-                backgroundColor: Colors.black,
+    return _permissionGranted == PermissionStatus.granted
+        ? FutureBuilder(
+            future: _getLocation(),
+            builder: (context, snap) {
+              Widget child;
+              if (snap.hasData) {
+                child = Stack(
+                  children: [
+                    Center(
+                      child: SizedBox(
+                        height: 400,
+                        child: GoogleMap(
+                          onMapCreated: _onMapCreated,
+                          myLocationButtonEnabled: false,
+                          mapType: MapType.normal,
+                          myLocationEnabled: true,
+                          initialCameraPosition: CameraPosition(
+                            target: _center,
+                            zoom: 8.85,
+                          ),
+                          onCameraMove: null,
+                          //circles: circles,
+                        ),
+                      ),
+                    ),
+                    Center(
+                      child: Opacity(
+                        opacity: 0.18,
+                        child: AnimatedContainer(
+                          height: _circleDiameter,
+                          width: _circleDiameter,
+                          decoration: BoxDecoration(
+                              color: Colors.teal,
+                              borderRadius: BorderRadius.circular(200),
+                              border: Border.all(
+                                  color: Colors.tealAccent, width: 10)),
+                          duration: Duration(milliseconds: 250),
+                        ),
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.topCenter,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 60.0),
+                        child: Text('WITHIN $_minutes MIN FLIGHT'),
+                      ),
+                    ),
+                    Positioned(
+                      width: 300,
+                      bottom: 0,
+                      right: 50,
+                      child: Slider(
+                          min: 0,
+                          max: _maxValue,
+                          divisions: 40,
+                          activeColor: Colors.black87,
+                          inactiveColor: Colors.black87,
+                          value: _currentSliderValue,
+                          onChanged: (value) {
+                            setState(() {
+                              _currentSliderValue = value;
+                              _circleDiameter = _originalDiameter /
+                                  (_maxValue / _currentSliderValue);
+                              _minutes =
+                                  (60 / (80 / _currentSliderValue)).floor();
+                            });
+                          }),
+                    )
+                  ],
+                );
+              } else if (snap.hasError) {
+                child = Text(_error);
+              } else {
+                child = CircularProgressIndicator();
+              }
+              return child;
+            })
+        : Align(
+            alignment: Alignment.bottomCenter,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 100.0),
+              child: OutlinedButton(
+                onPressed: () {
+                  if (_permissionGranted == PermissionStatus.denied) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(
+                      'Enable location in Phone Settings',
+                    )));
+                  } else {
+                    _requestService();
+                    _requestPermission();
+                    setState(() {});
+                  }
+                },
+                child: Text('LOCATE LAUNCH SITE'),
               ),
-            );
-          }
-          return Center(
-            child: child,
+            ),
           );
-        },
-      ),
-    );
   }
 }
