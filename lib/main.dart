@@ -50,8 +50,8 @@ class _HomePageState extends State<HomePage> {
           children: <Widget>[
             Logo(),
             SizedBox(
-              height: 600,
-              width: 400,
+              height: 650,
+              width: screenSize.width,
               child: PageView(
                 children: [QuestionPage(), MapRangePage(), AltitudePage()],
               ),
