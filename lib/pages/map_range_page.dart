@@ -6,11 +6,16 @@ import 'package:location/location.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class MapRangePage extends StatefulWidget {
+  MapRangePage({Key key}) : super(key: key);
   @override
   _MapRangePageState createState() => _MapRangePageState();
 }
 
-class _MapRangePageState extends State<MapRangePage> {
+class _MapRangePageState extends State<MapRangePage>
+    with TickerProviderStateMixin {
+  AnimationController _controller;
+  Animation<double> _animation;
+
   final Location location = Location();
   PermissionStatus _permissionGranted;
   LocationData _locationData;
@@ -24,6 +29,7 @@ class _MapRangePageState extends State<MapRangePage> {
   double _originalDiameter = 380;
   double _circleDiameter = 380;
   List<Marker> mapMarkers;
+  int _count;
 
   void _onMapCreated(GoogleMapController controller) {
     mapController = controller;
@@ -73,14 +79,44 @@ class _MapRangePageState extends State<MapRangePage> {
     });
   }
 
+  Future<void> _playAnimation() async {
+    try {
+      while (_count > 1) {
+        await _controller.forward().orCancel;
+        if (!_controller.isAnimating) {
+          _controller.reset();
+          _count--;
+          setState(() {});
+        }
+        await _controller.forward().orCancel;
+      }
+    } on TickerCanceled {
+      // the animation got canceled, probably because it was disposed of
+    }
+  }
+
+  flyButtonCallBack() async {
+    _playAnimation();
+  }
+
   @override
   void initState() {
-    mapMarkers = [];
     super.initState();
+    _count = 5;
+    mapMarkers = [];
+    _controller = AnimationController(
+      duration: const Duration(seconds: 1),
+      vsync: this,
+    );
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.fastOutSlowIn,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
     return _permissionGranted == PermissionStatus.granted
         ? FutureBuilder(
             future: _getLocation(),
@@ -92,13 +128,15 @@ class _MapRangePageState extends State<MapRangePage> {
                     Align(
                       alignment: Alignment.topCenter,
                       child: Padding(
-                        padding: const EdgeInsets.only(top: 60.0),
+                        padding: const EdgeInsets.only(top: 50.0),
                         child: Text('WITHIN $_minutes MIN FLIGHT'),
                       ),
                     ),
-                    Center(
+                    Positioned(
+                      width: screenSize.width,
+                      bottom: 150,
                       child: SizedBox(
-                        height: 400,
+                        height: screenSize.width,
                         child: GoogleMap(
                           markers: Set.from(mapMarkers),
                           onTap: _onGMapTap,
@@ -114,33 +152,36 @@ class _MapRangePageState extends State<MapRangePage> {
                         ),
                       ),
                     ),
-                    Center(
-                        child: SizedBox(
-                      width: 400,
-                      height: 400,
-                      child: Center(
-                        child: Opacity(
-                          opacity: 0.18,
-                          child: IgnorePointer(
-                            ignoring: true,
-                            child: AnimatedContainer(
-                              height: _circleDiameter,
-                              width: _circleDiameter,
-                              decoration: BoxDecoration(
-                                  color: Colors.teal,
-                                  borderRadius: BorderRadius.circular(200),
-                                  border: Border.all(
-                                      color: Colors.tealAccent, width: 10)),
-                              duration: Duration(milliseconds: 250),
+                    Positioned(
+                      width: screenSize.width,
+                      bottom: 150,
+                      child: SizedBox(
+                        width: screenSize.width,
+                        height: screenSize.width,
+                        child: Center(
+                          child: Opacity(
+                            opacity: 0.18,
+                            child: IgnorePointer(
+                              ignoring: true,
+                              child: AnimatedContainer(
+                                height: _circleDiameter,
+                                width: _circleDiameter,
+                                decoration: BoxDecoration(
+                                    color: Colors.teal,
+                                    borderRadius: BorderRadius.circular(200),
+                                    border: Border.all(
+                                        color: Colors.tealAccent, width: 10)),
+                                duration: Duration(milliseconds: 250),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    )),
+                    ),
                     Positioned(
                       width: 300,
-                      bottom: 50,
-                      right: 50,
+                      bottom: 80,
+                      right: (screenSize.width - 300) / 2,
                       child: Slider(
                           min: 0,
                           max: _maxValue,
@@ -161,8 +202,23 @@ class _MapRangePageState extends State<MapRangePage> {
                     Align(
                       alignment: Alignment.bottomCenter,
                       child: OutlinedButton(
-                        onPressed: () {},
+                        onPressed: () async {
+                          await _playAnimation();
+                        },
                         child: Text('FLY'),
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.center,
+                      child: ScaleTransition(
+                        scale: _animation,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 80.0),
+                          child: Text(
+                            _count.toString(),
+                            style: TextStyle(fontSize: 500),
+                          ),
+                        ),
                       ),
                     )
                   ],
@@ -195,5 +251,11 @@ class _MapRangePageState extends State<MapRangePage> {
               ),
             ),
           );
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    _controller.dispose();
   }
 }
