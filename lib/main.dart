@@ -38,6 +38,20 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  PageController pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    pageController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
@@ -53,7 +67,13 @@ class _HomePageState extends State<HomePage> {
               height: 650,
               width: screenSize.width,
               child: PageView(
-                children: [QuestionPage(), MapRangePage(), AltitudePage()],
+                physics: new NeverScrollableScrollPhysics(),
+                controller: pageController,
+                children: [
+                  QuestionPage(controller: pageController),
+                  MapRangePage(controller: pageController),
+                  AltitudePage(controller: pageController)
+                ],
               ),
             )
           ],

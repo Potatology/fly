@@ -6,7 +6,9 @@ import 'package:location/location.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class MapRangePage extends StatefulWidget {
-  MapRangePage({Key key}) : super(key: key);
+  final PageController controller;
+  MapRangePage({Key key, @required this.controller}) : super(key: key);
+
   @override
   _MapRangePageState createState() => _MapRangePageState();
 }
@@ -96,7 +98,14 @@ class _MapRangePageState extends State<MapRangePage>
   }
 
   flyButtonCallBack() async {
-    _playAnimation();
+    await _playAnimation();
+    if (widget.controller.hasClients) {
+      widget.controller.animateToPage(
+        2,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   @override
@@ -203,7 +212,7 @@ class _MapRangePageState extends State<MapRangePage>
                       alignment: Alignment.bottomCenter,
                       child: OutlinedButton(
                         onPressed: () async {
-                          await _playAnimation();
+                          await flyButtonCallBack();
                         },
                         child: Text('FLY'),
                       ),
@@ -216,7 +225,8 @@ class _MapRangePageState extends State<MapRangePage>
                           padding: const EdgeInsets.only(bottom: 80.0),
                           child: Text(
                             _count.toString(),
-                            style: TextStyle(fontSize: 500),
+                            style:
+                                TextStyle(fontSize: 300, color: Colors.white),
                           ),
                         ),
                       ),
@@ -234,20 +244,20 @@ class _MapRangePageState extends State<MapRangePage>
             alignment: Alignment.bottomCenter,
             child: Padding(
               padding: const EdgeInsets.only(bottom: 100.0),
-              child: OutlinedButton(
-                onPressed: () {
-                  if (_permissionGranted == PermissionStatus.denied) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text(
-                      'Enable location in Phone Settings',
-                    )));
-                  } else {
-                    _requestService();
-                    _requestPermission();
-                    setState(() {});
-                  }
-                },
-                child: Text('LOCATE LAUNCH SITE'),
+              child: Stack(
+                children: [
+                  OutlinedButton(
+                    onPressed: () {
+                      if (_permissionGranted == PermissionStatus.denied) {
+                      } else {
+                        _requestService();
+                        _requestPermission();
+                        setState(() {});
+                      }
+                    },
+                    child: Text('LOCATE LAUNCH SITE'),
+                  ),
+                ],
               ),
             ),
           );
