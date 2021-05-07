@@ -26,6 +26,7 @@ dependencies:
   location: ^3.0.0
   google_maps_flutter: ^1.2.0
   async: ^2.4.2
+  webview_flutter: ^1.0.7
 
 
   # The following adds the Cupertino Icons font to your application.
@@ -50,6 +51,9 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/logo_300.jpg
+    - assets/images/aircraft.png
+    - assets/images/crosshair.png
+    - assets/images/hashmarks.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware.

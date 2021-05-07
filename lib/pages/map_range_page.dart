@@ -6,11 +6,18 @@ import 'package:location/location.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class MapRangePage extends StatefulWidget {
+  final PageController controller;
+  MapRangePage({Key key, @required this.controller}) : super(key: key);
+
   @override
   _MapRangePageState createState() => _MapRangePageState();
 }
 
-class _MapRangePageState extends State<MapRangePage> {
+class _MapRangePageState extends State<MapRangePage>
+    with TickerProviderStateMixin {
+  AnimationController _controller;
+  Animation<double> _animation;
+
   final Location location = Location();
   PermissionStatus _permissionGranted;
   LocationData _locationData;
@@ -18,12 +25,13 @@ class _MapRangePageState extends State<MapRangePage> {
   bool _serviceEnabled;
   GoogleMapController mapController;
   LatLng _center;
-  Set<Circle> circles;
   double _currentSliderValue = 40;
   int _minutes = 30;
   double _maxValue = 40;
   double _originalDiameter = 380;
   double _circleDiameter = 380;
+  List<Marker> mapMarkers;
+  int _count;
 
   void _onMapCreated(GoogleMapController controller) {
     mapController = controller;
@@ -59,20 +67,65 @@ class _MapRangePageState extends State<MapRangePage> {
       _error = err.code;
     }
     _center = LatLng(_locationData.latitude, _locationData.longitude);
-    circles = Set.from([
-      Circle(
-        strokeColor: Colors.yellow,
-        circleId: CircleId('1'),
-        center: _center,
-        radius: 50000,
-        visible: true,
-      )
-    ]);
     return _locationData;
+  }
+
+  _onGMapTap(LatLng tappedCoord) {
+    setState(() {
+      mapMarkers = [];
+      mapMarkers.add(Marker(
+        icon: BitmapDescriptor.defaultMarkerWithHue(180),
+        markerId: MarkerId(tappedCoord.toString()),
+        position: tappedCoord,
+      ));
+    });
+  }
+
+  Future<void> _playAnimation() async {
+    try {
+      while (_count > 1) {
+        await _controller.forward().orCancel;
+        if (!_controller.isAnimating) {
+          _controller.reset();
+          _count--;
+          setState(() {});
+        }
+        await _controller.forward().orCancel;
+      }
+    } on TickerCanceled {
+      // the animation got canceled, probably because it was disposed of
+    }
+  }
+
+  flyButtonCallBack() async {
+    await _playAnimation();
+    if (widget.controller.hasClients) {
+      widget.controller.animateToPage(
+        2,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _count = 3;
+    mapMarkers = [];
+    _controller = AnimationController(
+      duration: const Duration(seconds: 1),
+      vsync: this,
+    );
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.fastOutSlowIn,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
     return _permissionGranted == PermissionStatus.granted
         ? FutureBuilder(
             future: _getLocation(),
@@ -81,10 +134,22 @@ class _MapRangePageState extends State<MapRangePage> {
               if (snap.hasData) {
                 child = Stack(
                   children: [
-                    Center(
+                    Align(
+                      alignment: Alignment.topCenter,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 50.0),
+                        child: Text('WITHIN $_minutes MIN FLIGHT'),
+                      ),
+                    ),
+                    Positioned(
+                      width: screenSize.width,
+                      bottom: 150,
                       child: SizedBox(
-                        height: 400,
+                        height: screenSize.width,
                         child: GoogleMap(
+                          scrollGesturesEnabled: false,
+                          markers: Set.from(mapMarkers),
+                          onTap: _onGMapTap,
                           onMapCreated: _onMapCreated,
                           myLocationButtonEnabled: false,
                           mapType: MapType.normal,
@@ -94,36 +159,39 @@ class _MapRangePageState extends State<MapRangePage> {
                             zoom: 8.85,
                           ),
                           onCameraMove: null,
-                          //circles: circles,
                         ),
                       ),
                     ),
-                    Center(
-                      child: Opacity(
-                        opacity: 0.18,
-                        child: AnimatedContainer(
-                          height: _circleDiameter,
-                          width: _circleDiameter,
-                          decoration: BoxDecoration(
-                              color: Colors.teal,
-                              borderRadius: BorderRadius.circular(200),
-                              border: Border.all(
-                                  color: Colors.tealAccent, width: 10)),
-                          duration: Duration(milliseconds: 250),
+                    Positioned(
+                      width: screenSize.width,
+                      bottom: 150,
+                      child: SizedBox(
+                        width: screenSize.width,
+                        height: screenSize.width,
+                        child: Center(
+                          child: Opacity(
+                            opacity: 0.18,
+                            child: IgnorePointer(
+                              ignoring: true,
+                              child: AnimatedContainer(
+                                height: _circleDiameter,
+                                width: _circleDiameter,
+                                decoration: BoxDecoration(
+                                    color: Colors.teal,
+                                    borderRadius: BorderRadius.circular(200),
+                                    border: Border.all(
+                                        color: Colors.tealAccent, width: 10)),
+                                duration: Duration(milliseconds: 250),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    Align(
-                      alignment: Alignment.topCenter,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 60.0),
-                        child: Text('WITHIN $_minutes MIN FLIGHT'),
                       ),
                     ),
                     Positioned(
                       width: 300,
-                      bottom: 0,
-                      right: 50,
+                      bottom: 80,
+                      right: (screenSize.width - 300) / 2,
                       child: Slider(
                           min: 0,
                           max: _maxValue,
@@ -140,6 +208,27 @@ class _MapRangePageState extends State<MapRangePage> {
                                   (60 / (80 / _currentSliderValue)).floor();
                             });
                           }),
+                    ),
+                    Align(
+                      alignment: Alignment.bottomCenter,
+                      child: OutlinedButton(
+                        onPressed: () => flyButtonCallBack(),
+                        child: Text('FLY'),
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.center,
+                      child: ScaleTransition(
+                        scale: _animation,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 80.0),
+                          child: Text(
+                            _count.toString(),
+                            style:
+                                TextStyle(fontSize: 300, color: Colors.white),
+                          ),
+                        ),
+                      ),
                     )
                   ],
                 );
@@ -154,22 +243,28 @@ class _MapRangePageState extends State<MapRangePage> {
             alignment: Alignment.bottomCenter,
             child: Padding(
               padding: const EdgeInsets.only(bottom: 100.0),
-              child: OutlinedButton(
-                onPressed: () {
-                  if (_permissionGranted == PermissionStatus.denied) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text(
-                      'Enable location in Phone Settings',
-                    )));
-                  } else {
-                    _requestService();
-                    _requestPermission();
-                    setState(() {});
-                  }
-                },
-                child: Text('LOCATE LAUNCH SITE'),
+              child: Stack(
+                children: [
+                  OutlinedButton(
+                    onPressed: () {
+                      if (_permissionGranted == PermissionStatus.denied) {
+                      } else {
+                        _requestService();
+                        _requestPermission();
+                        setState(() {});
+                      }
+                    },
+                    child: Text('LOCATE LAUNCH SITE'),
+                  ),
+                ],
               ),
             ),
           );
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    _controller.dispose();
   }
 }
