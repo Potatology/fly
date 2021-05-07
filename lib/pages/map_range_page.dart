@@ -111,7 +111,7 @@ class _MapRangePageState extends State<MapRangePage>
   @override
   void initState() {
     super.initState();
-    _count = 5;
+    _count = 3;
     mapMarkers = [];
     _controller = AnimationController(
       duration: const Duration(seconds: 1),
@@ -147,6 +147,7 @@ class _MapRangePageState extends State<MapRangePage>
                       child: SizedBox(
                         height: screenSize.width,
                         child: GoogleMap(
+                          scrollGesturesEnabled: false,
                           markers: Set.from(mapMarkers),
                           onTap: _onGMapTap,
                           onMapCreated: _onMapCreated,
@@ -211,9 +212,7 @@ class _MapRangePageState extends State<MapRangePage>
                     Align(
                       alignment: Alignment.bottomCenter,
                       child: OutlinedButton(
-                        onPressed: () async {
-                          await flyButtonCallBack();
-                        },
+                        onPressed: () => flyButtonCallBack(),
                         child: Text('FLY'),
                       ),
                     ),

@@ -17,12 +17,31 @@ class _AltitudePageState extends State<AltitudePage> {
       Completer<WebViewController>();
   double _crosshairY = 320.0;
   bool _showAirCraft;
+  double _tweenEndValue = 1;
 
   @override
   void initState() {
     super.initState();
     _showAirCraft = false;
   }
+
+  void _onHashmarksTap(TapDownDetails details) {}
+
+  void _onDragUpdate(DragUpdateDetails dragUpdateDetails) {
+    if (dragUpdateDetails.primaryDelta < 0) {
+      setState(() {
+        if (_crosshairY < 400) {
+          _crosshairY += 5;
+        }
+      });
+    } else if (dragUpdateDetails.primaryDelta > 0) {
+      if (_crosshairY > 240) {
+        _crosshairY -= 5;
+      }
+    }
+  }
+
+  void _onDragEnd(DragEndDetails dragEndDetails) {}
 
   @override
   Widget build(BuildContext context) {
@@ -64,38 +83,36 @@ class _AltitudePageState extends State<AltitudePage> {
                 ))
           ]
         : [
-            Center(
-              child: SizedBox(
-                height: 100,
-                width: _screensize.width - 40,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    OutlinedButton(
-                        onPressed: () {
-                          setState(() {
-                            print(_crosshairY.toString());
-                            if (_crosshairY > 240)
-                              _crosshairY = _crosshairY - 40;
-                          });
-                        },
-                        child: Text('UP')),
-                    OutlinedButton(
-                        onPressed: () {
-                          print(_crosshairY.toString());
-                          setState(() {
-                            if (_crosshairY < 400)
-                              _crosshairY = _crosshairY + 40;
-                          });
-                        },
-                        child: Text('DOWN')),
-                  ],
+            Padding(
+              padding: const EdgeInsets.only(top: 150.0),
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: Offstage(
+                  offstage: _crosshairY < 350 ? true : false,
+                  child: TweenAnimationBuilder(
+                    duration: Duration(milliseconds: 550),
+                    tween: Tween<double>(begin: 0.5, end: _tweenEndValue),
+                    curve: Curves.easeIn,
+                    onEnd: () {
+                      setState(() {
+                        _tweenEndValue = _tweenEndValue == 1 ? 0.2 : 1;
+                      });
+                    },
+                    builder: (_, opacity, __) {
+                      return Opacity(
+                        opacity: opacity,
+                        child: Text(
+                          'GAIN ELEVATION',
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
             AnimatedPositioned(
                 onEnd: () {
-                  if (_crosshairY == 240) {
+                  if (_crosshairY <= 240) {
                     _showAirCraft = true;
                     setState(() {});
                   }
@@ -105,7 +122,46 @@ class _AltitudePageState extends State<AltitudePage> {
                 left: (_screensize.width - 200) / 2,
                 top: _crosshairY,
                 child: crosshair),
-            Center(child: hashmarks)
+            Center(child: hashmarks),
+            Center(
+              child: SizedBox(
+                  height: 170,
+                  width: _screensize.width - 40,
+                  child: Center(
+                    child: SizedBox(
+                      height: 170,
+                      child: GestureDetector(
+                        onTapDown: _onHashmarksTap,
+                        onVerticalDragUpdate: _onDragUpdate,
+                        onVerticalDragEnd: _onDragEnd,
+                      ),
+                    ),
+                  )
+                  // Row(
+                  //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  //   children: [
+                  //     OutlinedButton(
+                  //         onPressed: () {
+                  //           setState(() {
+                  //             print(_crosshairY.toString());
+                  //             if (_crosshairY > 240)
+                  //               _crosshairY = _crosshairY - 40;
+                  //           });
+                  //         },
+                  //         child: Text('UP')),
+                  //     OutlinedButton(
+                  //         onPressed: () {
+                  //           print(_crosshairY.toString());
+                  //           setState(() {
+                  //             if (_crosshairY < 400)
+                  //               _crosshairY = _crosshairY + 40;
+                  //           });
+                  //         },
+                  //         child: Text('DOWN')),
+                  //   ],
+                  // ),
+                  ),
+            ),
           ];
 
     return Container(
